@@ -1,2 +1,4 @@
 speech_commands
+conformer
 *.pt
+*.onnx
