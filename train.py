@@ -44,30 +44,7 @@ class attention_model(torch.nn.Module):
     def __init__(self , input_dim = 16000 , out_class = 31 , device = "cpu"):
         super().__init__()
         self.device = device
-        
-        # self.pre_cnn = torch.nn.Sequential(
-        #     # input = batch , 1 , 16000 , out = batch 3 , 4000
-        #     torch.nn.Conv1d(in_channels=1 , out_channels=3 , kernel_size=8 , stride=4 , padding=3),
-        #     torch.nn.ReLU(),
-        #     # input = batch , 3 , 4000 , out = batch , 3 , 1000
-        #     torch.nn.MaxPool1d(kernel_size=8 , stride=4 , padding=2),
-        #     # # input = batch , 3 , 1000 , out = batch , 21 , 1000
-        #     torch.nn.Conv1d(in_channels=3 , out_channels=21 , kernel_size=3 , stride=1 , padding=1),
-        #     torch.nn.ReLU(),
-        # )
-
-        
-        # # input = batch , 1000 , 21 , out = batch , 1000 , 21
-        # self.attention = torch.nn.MultiheadAttention(embed_dim=1000 , num_heads=2 , dropout=0.2 , batch_first=True)
-        # # input = batch , 1000 , 21 , out = batch , 1000 , 7
-        # self.attention_pool = torch.nn.MaxPool1d(kernel_size=7 , stride=3 , padding=2)
-
-        # self.pred_layer = torch.nn.Sequential(
-        #     # input = batch , 1000 , 7 , out = batch , out_class , 7
-        #     torch.nn.Linear(1000 , out_class),
-        #     torch.nn.ReLU(),
-        # )
-
+    
         self.pre_cnn = torch.nn.Sequential(
             # input = 16000
             torch.nn.Conv1d(in_channels=1 , out_channels=32 , kernel_size=32 , stride=4 , padding=15),
@@ -76,7 +53,7 @@ class attention_model(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Conv1d(in_channels=64 , out_channels=128 , kernel_size=32 , stride=4 , padding=15),
             torch.nn.ReLU(),
-            # out 
+            # out 128 , 250
             # torch.nn.Conv1d(in_channels=128 , out_channels=128 , kernel_size=3 , stride=1 , padding=1 , groups=128),
             # torch.nn.Conv1d(in_channels=128 , out_channels=256 , kernel_size=1 , stride=1),
             # torch.nn.ReLU(),
@@ -92,7 +69,12 @@ class attention_model(torch.nn.Module):
         )
 
         self.conformer = torchaudio.models.Conformer(input_dim=250 , num_heads=2 , ffn_dim=256 , num_layers=1 , depthwise_conv_kernel_size=31,dropout=0.2)
+        # 250 , 128
+        self.avg_pool = torch.nn.AvgPool1d(kernel_size=128 , stride=128)
 
+        
+        
+        # self.avgpool = 
         self.pred_layer = torch.nn.Sequential(
             # torch.nn.Linear(1000 , 512),
             # torch.nn.ReLU(),        
@@ -100,32 +82,19 @@ class attention_model(torch.nn.Module):
             torch.nn.ReLU(),        
             torch.nn.Linear(256, out_class),
         )
-    def __attention_block__(self , x):
-        out = self.attention(x,x,x)[0]
-        # print(out.shape)
-        out = torch.transpose(out , 1 , 2)
-        out = self.attention_pool(out)
-        return out
 
     def __conformer_block__(self,x):
         
         conformer_length = (torch.ones(x.shape[0]) * x.shape[1]).to(self.device)
-        out = self.conformer(x,conformer_length)
-        out = torch.nn.AdaptiveAvgPool2d((250,1))(out[0])
-        return out
-
-    def __pred_fc_block__(self , x):
-        out = torch.max(x , dim=2).values
-        out = self.pred_layer(out)
+        out , _= self.conformer(x,conformer_length)
+        out = torch.transpose(out , dim0=1 , dim1=2)
+        out = self.avg_pool(out)
         return out
 
     def forward(self , x):
         out = self.pre_cnn(x)
         out = self.__conformer_block__(out)
         out = self.pred_layer(out.squeeze())
-        # out = torch.transpose(out , 1 , 2)
-        # out = self.__attention_block__(out)   
-        # out = self.__pred_fc_block__(out)
         return out
 
 """gen label name to id dict"""
@@ -282,7 +251,7 @@ def pt_convert_onnx(pt_path , onnx_path):
     model.device = "cpu"
     model.eval()
 
-    torch_input = torch.rand(1, 1, 16000 , dtype=torch.float32).to("cpu")
+    torch_input = torch.rand(3, 1, 16000 , dtype=torch.float32).to("cpu")
     model(torch_input)
     
     onnx_program = torch.onnx.export(
@@ -323,9 +292,11 @@ if __name__ == "__main__":
     
     # get dataloader
     train_dataloader , valid_dataloader , test_dataloader = gen_dataloader(speech_commands_root_folder , batch_size , workers , logger , (1000,100,100))
+    # torch_input = torch.rand(1, 1, 16000 , dtype=torch.float32).to(device)
+    # model(torch_input)
     # train_dataloader , valid_dataloader , test_dataloader = gen_dataloader(speech_commands_root_folder , batch_size , workers)
 
-    # train / valid
+    # # train / valid
     train_info = []
     max_acc = -1
     for epoch in range(epochs):
@@ -340,7 +311,8 @@ if __name__ == "__main__":
     testing_model(device , test_dataloader , logger , root_dir=root_folder)
     # testing_model(device , test_dataloader , logger , model_path="conformer/best_model_86.pt")
     
-    pt_path = Path("conformer/best_model_86.pt")
+    # pt_path = Path("conformer/best_model_86.pt")
+    pt_path = Path("conformer/1219/best_model.pt")
     pt_convert_onnx(pt_path , onnx_path=pt_path.with_suffix(".onnx"))
 
 # worker
