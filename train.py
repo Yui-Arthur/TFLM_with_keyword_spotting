@@ -194,7 +194,7 @@ def train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logg
     return np.mean(epoch_train_acc) , np.mean(epoch_train_loss) , np.mean(epoch_valid_acc) , np.mean(epoch_valid_loss)
 
 def logger_setting(root):
-    root_folder.mkdir(exist_ok=True)
+    root.mkdir(exist_ok=True)
     logger = logging.getLogger(f"{__name__}")
     log_format = logging.Formatter(f'[%(asctime)s] - %(message)s')
     logger.setLevel(logging.DEBUG)
@@ -259,7 +259,9 @@ def pt_convert_onnx(pt_path , onnx_path):
         torch_input,
         onnx_path,
         input_names=["input"],
-        output_names=["output"])
+        output_names=["output"],
+        dynamic_axes={"input":{0:"batch_size"},
+                      "output" : {0 : "batch_size"}})
 
 # init setting
 input_dim = 16000
@@ -297,18 +299,18 @@ if __name__ == "__main__":
     # train_dataloader , valid_dataloader , test_dataloader = gen_dataloader(speech_commands_root_folder , batch_size , workers)
 
     # # train / valid
-    train_info = []
-    max_acc = -1
-    for epoch in range(epochs):
-        logger.info(f"epoch {epoch} :")
-        epoch_info = train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logger , root_folder)
-        train_info.append(list(epoch_info))
-        max_acc = max(epoch_info[2] ,max_acc)
-    # show train the result    
-    show_train_results(train_info , root_folder)
+    # train_info = []
+    # max_acc = -1
+    # for epoch in range(epochs):
+    #     logger.info(f"epoch {epoch} :")
+    #     epoch_info = train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logger , root_folder)
+    #     train_info.append(list(epoch_info))
+    #     max_acc = max(epoch_info[2] ,max_acc)
+    # # show train the result    
+    # show_train_results(train_info , root_folder)
 
     # test the model
-    testing_model(device , test_dataloader , logger , root_dir=root_folder)
+    # testing_model(device , test_dataloader , logger , root_dir=root_folder)
     # testing_model(device , test_dataloader , logger , model_path="conformer/best_model_86.pt")
     
     # pt_path = Path("conformer/best_model_86.pt")
