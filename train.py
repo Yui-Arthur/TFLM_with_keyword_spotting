@@ -193,13 +193,13 @@ def train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logg
 
     return np.mean(epoch_train_acc) , np.mean(epoch_train_loss) , np.mean(epoch_valid_acc) , np.mean(epoch_valid_loss)
 
-def logger_setting(root):
+def logger_setting(root , log_name):
     root.mkdir(exist_ok=True)
     logger = logging.getLogger(f"{__name__}")
     log_format = logging.Formatter(f'[%(asctime)s] - %(message)s')
     logger.setLevel(logging.DEBUG)
 
-    handler = logging.FileHandler(filename=root / "run.log", encoding='utf-8' , mode="w")
+    handler = logging.FileHandler(filename=root / f"{log_name}.log", encoding='utf-8' , mode="w")
     handler.setLevel(logging.DEBUG)   
     handler.setFormatter(log_format)
     logger.addHandler(handler)   
@@ -273,16 +273,16 @@ google_speech_commands_dataset.num_class = output_class
 
 if __name__ == "__main__":
     # hyperparameter
-    epochs = 10
+    epochs = 30
     batch_size = 128
     device = "cuda"
     learning_rate = 1e-3
-    workers = 0
+    workers = 6
 
     # path & logger setting
     speech_commands_root_folder = Path("./speech_commands")
     root_folder = Path("conformer/1219")
-    logger : logging.Logger = logger_setting(root_folder)
+    logger : logging.Logger = logger_setting(root_folder , "train")
 
     # model init
     model = attention_model(input_dim , output_class , device).to(device)
@@ -293,24 +293,24 @@ if __name__ == "__main__":
     logger.info(f"Model Parameters : {num_params}")
     
     # get dataloader
-    train_dataloader , valid_dataloader , test_dataloader = gen_dataloader(speech_commands_root_folder , batch_size , workers , logger , (1000,100,100))
+    # train_dataloader , valid_dataloader , test_dataloader = gen_dataloader(speech_commands_root_folder , batch_size , workers , logger , (1000,100,100))
     # torch_input = torch.rand(1, 1, 16000 , dtype=torch.float32).to(device)
     # model(torch_input)
-    # train_dataloader , valid_dataloader , test_dataloader = gen_dataloader(speech_commands_root_folder , batch_size , workers)
+    train_dataloader , valid_dataloader , test_dataloader = gen_dataloader(speech_commands_root_folder , batch_size , workers , logger)
 
-    # # train / valid
-    # train_info = []
-    # max_acc = -1
-    # for epoch in range(epochs):
-    #     logger.info(f"epoch {epoch} :")
-    #     epoch_info = train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logger , root_folder)
-    #     train_info.append(list(epoch_info))
-    #     max_acc = max(epoch_info[2] ,max_acc)
-    # # show train the result    
-    # show_train_results(train_info , root_folder)
+    # train / valid
+    train_info = []
+    max_acc = -1
+    for epoch in range(epochs):
+        logger.info(f"epoch {epoch} :")
+        epoch_info = train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logger , root_folder)
+        train_info.append(list(epoch_info))
+        max_acc = max(epoch_info[2] ,max_acc)
+    # show train the result    
+    show_train_results(train_info , root_folder)
 
     # test the model
-    # testing_model(device , test_dataloader , logger , root_dir=root_folder)
+    testing_model(device , test_dataloader , logger , root_dir=root_folder)
     # testing_model(device , test_dataloader , logger , model_path="conformer/best_model_86.pt")
     
     # pt_path = Path("conformer/best_model_86.pt")
