@@ -1,9 +1,4 @@
-import torch
-from torch.utils.data import Dataset
-import torchaudio
 from pathlib import Path
-from torch.utils.data import DataLoader
-from torchsummary import summary
 from tqdm import tqdm
 import numpy as np
 import logging
@@ -11,7 +6,6 @@ import sys
 import matplotlib.pyplot as plt
 import random
 import tensorflow as tf
-from conformer_tf import ConformerBlock
 
 """dataset define"""
 def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size , pick_num : tuple[int] = (int(1e9), int(1e9), int(1e9))):
@@ -48,7 +42,7 @@ def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size ,
     return train_dataset , valid_dataset , test_dataset
 
 """model define"""
-class attention_model(tf.keras.Model):
+class conv_model(tf.keras.Model):
     def __init__(self , input_dim = (16000,1) , out_class = 35 , learning_rate=1e-3):
         super().__init__()
         self.input_dim = input_dim
@@ -153,7 +147,7 @@ def train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logg
     epoch_valid_loss = []
     epoch_valid_acc = []
 
-    for inData, outData in train_dataloader:
+    for inData, outData in tqdm(train_dataloader):
         model.Train(inData, outData)
         
     for inData, outData in train_dataloader:
@@ -161,7 +155,7 @@ def train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logg
         epoch_train_acc.append(acc)
         epoch_train_loss.append(loss)
         
-    for inData, outData in valid_dataloader:
+    for inData, outData in tqdm(valid_dataloader):
         acc , loss = model.Validate(inData, outData)
         epoch_valid_acc.append(acc)
         epoch_valid_loss.append(loss)
@@ -250,7 +244,7 @@ if __name__ == "__main__":
     logger : logging.Logger = logger_setting(root_folder , "train")
 
     # model init
-    model = attention_model(input_dim , output_class , learning_rate)
+    model = conv_model(input_dim , output_class , learning_rate)
     model.build((batch_size,16000,1))
     model._model.summary()
     # exit()
