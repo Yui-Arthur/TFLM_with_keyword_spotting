@@ -61,16 +61,20 @@ class conv_model(tf.keras.Model):
     def Train(self, x:tf.Tensor, y:tf.Tensor):
         with tf.GradientTape() as tape:
             output = self.__call__(x, training=True)
-            classLoss = self._learner["get_loss"](output, y)
+            classLoss = self._learner["get_loss"](y, output)
+            review = tf.math.in_top_k(tf.math.argmax(y,axis=1), output, 1)
+            perf = tf.math.reduce_mean(tf.cast(review, dtype="float32"))
 
         cGradients = tape.gradient(classLoss, self._model.trainable_variables)
         self._learner["optimize"].apply_gradients(zip(cGradients, self._model.trainable_variables))
+        return perf, classLoss
+
 
     @tf.function
     def Validate(self, x:tf.Tensor, y:tf.Tensor) -> tf.Tensor:
         output = self.__call__(x, training=False)
         review = tf.math.in_top_k(tf.math.argmax(y,axis=1), output, 1)
-        classLoss = self._learner["get_loss"](output, y)
+        classLoss = self._learner["get_loss"](y , output)
         perf = tf.math.reduce_mean(tf.cast(review, dtype="float32"))
         return perf , classLoss
 
@@ -95,7 +99,8 @@ class conv_model(tf.keras.Model):
         return model
     
     def _BuildLearner(self) -> dict:
-        classLoss = lambda p, y: tf.reduce_mean(-tf.reduce_sum(y*tf.math.log(p+1e-13), axis=1))
+        # classLoss = lambda p, y: tf.reduce_mean(-tf.reduce_sum(y*tf.math.log(p+1e-13), axis=1))
+        classLoss = tf.keras.losses.CategoricalCrossentropy()
         classOptimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
         learner = {"get_loss": classLoss, "optimize": classOptimizer}
 
@@ -148,10 +153,7 @@ def train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logg
     epoch_valid_acc = []
 
     for inData, outData in tqdm(train_dataloader):
-        model.Train(inData, outData)
-        
-    for inData, outData in train_dataloader:
-        acc , loss = model.Validate(inData, outData)
+        acc , loss = model.Train(inData, outData)
         epoch_train_acc.append(acc)
         epoch_train_loss.append(loss)
         
@@ -159,13 +161,14 @@ def train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logg
         acc , loss = model.Validate(inData, outData)
         epoch_valid_acc.append(acc)
         epoch_valid_loss.append(loss)
-        
+    
     epoch_train_acc_mean = tf.math.reduce_mean(epoch_train_acc) * 100
     epoch_valid_acc_mean = tf.math.reduce_mean(epoch_valid_acc) * 100
     epoch_train_loss_mean = tf.math.reduce_mean(epoch_train_loss)
     epoch_valid_loss_mean = tf.math.reduce_mean(epoch_valid_loss)
 
-    logger.info(f"Epoch: {epoch},    Train perf: {epoch_train_acc_mean:.2f},    Valid perf: {epoch_valid_acc_mean:.2f}")
+    logger.info(f"  Train Acc: {epoch_train_acc_mean:.2f}, Loss: {epoch_train_loss_mean:.2f}")
+    logger.info(f"  Valid Acc: {epoch_valid_acc_mean:.2f}, Loss: {epoch_valid_loss_mean:.2f}")
 
     if(epoch_valid_acc_mean > max_acc):
         logger.info("save best model")
@@ -222,7 +225,7 @@ def testing_model(test_dataloader , logger : logging.Logger , root_dir : Path = 
         
         testing_acc.append(acc)
     
-    logger.info(f"acc = {np.mean(testing_acc):.2f}")
+    logger.info(f"acc = {np.mean(testing_acc)*100:.2f}")
     del model
 
 
@@ -234,7 +237,7 @@ if __name__ == "__main__":
     wav_size = 16000
     output_class = 35
     # hyperparameter
-    epochs = 10
+    epochs = 3
     batch_size = 64
     learning_rate = 1e-3
 
@@ -251,8 +254,8 @@ if __name__ == "__main__":
     # logger.info(f"Model Parameters : {num_params}")
     
     # get dataloader
-    train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size)
-    # train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , (64,64,64))
+    # train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size)
+    train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , (256,256,256))
 
     # train / valid
     train_info = []
