@@ -8,8 +8,12 @@ import random
 import tensorflow as tf
 
 """dataset define"""
-def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size , pick_num : tuple[int] = (int(1e9), int(1e9), int(1e9)), load_in_memory=False):
+def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size, logger:logging.Logger
+                                   , pick_num : tuple[int] = (int(1e9), int(1e9), int(1e9)), load_in_memory=False):
+    
     train_list , valid_list , test_list , label_to_id = gen_data_list(speech_commands_path)
+
+    logger.info(f"train: {pick_num[0]} , valid: {pick_num[1]} , test: {pick_num[2]} , load_in_memory: {load_in_memory}")
 
     def __getitem__(file_name):
         if type(file_name) != str:
@@ -26,11 +30,13 @@ def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size ,
 
     data_lists = [train_list, valid_list, test_list]
     dataset_lists = [[],[],[]]
+    idx_str = ["train" , "valid" , "test"]
     if load_in_memory:
         for idx in range(len(data_lists)):
+            logger.info(f"load {idx_str[idx]} dataset with {pick_num[idx]}")
             loaded_data_x = []
             loaded_data_y = []
-            for f in data_lists[idx][:pick_num[idx]]:
+            for f in tqdm(data_lists[idx][:pick_num[idx]]):
                 x , y = __getitem__(f) 
                 loaded_data_x.append(x)
                 loaded_data_y.append(y)
@@ -262,8 +268,8 @@ if __name__ == "__main__":
     # logger.info(f"Model Parameters : {num_params}")
     
     # get dataloader
-    # train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size)
-    train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , (256,256,256) , load_in_memory=True)
+    # train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , logger)
+    train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , logger, (256,256,256) , load_in_memory=True)
 
     # train / valid
     train_info = []
