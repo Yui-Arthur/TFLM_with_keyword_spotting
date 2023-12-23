@@ -8,38 +8,46 @@ import random
 import tensorflow as tf
 
 """dataset define"""
-def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size , pick_num : tuple[int] = (int(1e9), int(1e9), int(1e9))):
+def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size , pick_num : tuple[int] = (int(1e9), int(1e9), int(1e9)), load_in_memory=False):
     train_list , valid_list , test_list , label_to_id = gen_data_list(speech_commands_path)
 
     def __getitem__(file_name):
-        file_name = file_name.numpy().decode('ascii')
+        if type(file_name) != str:
+            file_name = file_name.numpy().decode('ascii')
         wav_data , sample_rate = tf.audio.decode_wav(tf.io.read_file(file_name))
-        # print("ori" , wav_data.shape)
+
         if(wav_data.shape[0] != wav_size):
             pad = np.zeros((wav_size - wav_data.shape[0], 1))
             wav_data = np.concatenate((wav_data , pad) ,axis=0)
-        # print("aft" , wav_data.shape)
-        
-
-        
+                
         label = Path(file_name).parent.stem
         id = tf.one_hot(label_to_id[label], len(label_to_id))   
         return wav_data , id
 
-    train_dataset = tf.data.Dataset.from_tensor_slices(train_list[:pick_num[0]])
-    train_dataset = train_dataset.shuffle(len(train_list[:pick_num[0]]), reshuffle_each_iteration=True)
-    train_dataset = train_dataset.map(lambda x: tf.py_function(__getitem__, [x] , [tf.float32 , tf.float32]), num_parallel_calls=tf.data.AUTOTUNE)
-    train_dataset = train_dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
+    data_lists = [train_list, valid_list, test_list]
+    dataset_lists = [[],[],[]]
+    if load_in_memory:
+        for idx in range(len(data_lists)):
+            loaded_data_x = []
+            loaded_data_y = []
+            for f in data_lists[idx][:pick_num[idx]]:
+                x , y = __getitem__(f) 
+                loaded_data_x.append(x)
+                loaded_data_y.append(y)
+            
+            dataset = tf.data.Dataset.from_tensor_slices((loaded_data_x, loaded_data_y))
+            dataset = dataset.shuffle(len(loaded_data_x), reshuffle_each_iteration=True)
+            dataset = dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
+            dataset_lists[idx] = dataset
+    else:
+        for idx in range(len(data_lists)):
+            dataset = tf.data.Dataset.from_tensor_slices(data_lists[idx][:pick_num[idx]])
+            dataset = dataset.shuffle(len(data_lists[idx][:pick_num[idx]]), reshuffle_each_iteration=True)
+            dataset = dataset.map(lambda x: tf.py_function(__getitem__, [x] , [tf.float32 , tf.float32]), num_parallel_calls=tf.data.AUTOTUNE)
+            dataset = dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
+            dataset_lists[idx] = dataset
 
-    valid_dataset = tf.data.Dataset.from_tensor_slices(valid_list[:pick_num[1]])
-    valid_dataset = valid_dataset.map(lambda x: tf.py_function(__getitem__, [x] , [tf.float32 , tf.float32]), num_parallel_calls=tf.data.AUTOTUNE)
-    valid_dataset = valid_dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
-    
-    test_dataset = tf.data.Dataset.from_tensor_slices(test_list[:pick_num[1]])
-    test_dataset = test_dataset.map(lambda x: tf.py_function(__getitem__, [x] , [tf.float32 , tf.float32]), num_parallel_calls=tf.data.AUTOTUNE)
-    test_dataset = test_dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
-    
-    return train_dataset , valid_dataset , test_dataset
+    return dataset_lists[0] , dataset_lists[1] , dataset_lists[2]
 
 """model define"""
 class conv_model(tf.keras.Model):
@@ -255,7 +263,7 @@ if __name__ == "__main__":
     
     # get dataloader
     # train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size)
-    train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , (256,256,256))
+    train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , (256,256,256) , load_in_memory=True)
 
     # train / valid
     train_info = []
