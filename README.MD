@@ -1,6 +1,16 @@
 ## train the KWS models and deploy on MCU
 ### TODO
-- README
-- Augmentation
-- Quant
-- verify model on MCU
+- repo
+  - [ ] README
+- training
+  - [ ] ~~conformer model~~ (failed becaue of the tensorflow not support)
+  - [X] convolution 
+  - [ ] augmentation
+
+- export
+  - [ ] float32 & int8
+  - [ ] model.cc
+
+- deploy
+  - [ ] build project requirement
+  - [ ] inference process
