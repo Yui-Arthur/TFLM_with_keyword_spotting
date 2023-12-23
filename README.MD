@@ -14,3 +14,6 @@
 - deploy
   - [ ] build project requirement
   - [ ] inference process
+  - [ ] use microphone inference
+  - [ ] on NUCLEO-F767ZI (MBED-CLI)
+  - [ ] on Arduino nano ble 33 (Arduino-CLI)
