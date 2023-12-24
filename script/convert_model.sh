@@ -13,7 +13,7 @@ case $flag in
     p)
         project_dir=$OPTARG
     ;;
-    m)
+    i)
         input_model_path=$OPTARG
     ;;
     ?)
@@ -29,3 +29,4 @@ echo -ne "#include \"$target_file.h\"\nalignas(8)\n" > $project_dir/$target_file
 cat $project_dir/model.cc >> $project_dir/$target_file.cc
 sed -i -E "s/(unsigned\s.*\s).*(_len|\[\])/const \1${target_file}\2/g" $project_dir/$target_file.cc
 rm $project_dir/model.cc
+echo "success"

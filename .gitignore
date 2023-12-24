@@ -4,3 +4,10 @@ conformer
 *.pt
 *.onnx
 *.tflite
+*.pb
+TFLM_with_keyword_spotting/model_data_quant.cc
+TFLM_with_keyword_spotting/wav_data.cc
+model/*.wav
+test/
+test.py
+.vscode/

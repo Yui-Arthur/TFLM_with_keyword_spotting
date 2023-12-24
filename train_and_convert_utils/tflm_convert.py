@@ -31,7 +31,7 @@ def convert_wav(opt):
     
     with open(project_path / "wav_data.cc" , "w") as f:
         f.write("#include <stdint.h>\n")
-        f.write("const float wav_data[] = {\n")
+        f.write("float wav_data[] = {\n")
 
         for idx in range(wav_size):
             if len(wav_data) > idx:
@@ -52,17 +52,17 @@ def convert_wav(opt):
     with open(project_path / "wav_data.h" , "w") as f:
         f.write("#ifndef WAV_DATA_H_\n")
         f.write("#define WAV_DATA_H_\n")
-        f.write("   extern const float wav_data[];\n")
-        f.write("   extern const unsigned int wav_data_len;\n")
+        f.write("   extern float wav_data[];\n")
+        f.write("   extern unsigned int wav_data_len;\n")
         f.write("#endif  // WAV_DATA_H_\n")
         pass
 
 def convert_model(opt):
     project_path = Path(opt['project'])
     if opt['quant']:
-        subprocess.run(["/bin/bash", "convert_model.sh", '-i', opt['model'] , '-p', str(project_path), '-q'] , timeout=5 )
+        subprocess.run(["/bin/bash", "script/convert_model.sh", '-i', opt['model'] , '-p', str(project_path), '-q'] , timeout=5 )
     else:
-        subprocess.run(["/bin/bash", "convert_model.sh", '-i', opt['model'] , '-p', str(project_path)] , timeout=5 )
+        subprocess.run(["/bin/bash", "script/convert_model.sh", '-i', opt['model'] , '-p', str(project_path)] , timeout=5 )
     
 
 

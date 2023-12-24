@@ -9,11 +9,12 @@
 
 - export
   - [X] float32 & int8
-  - [ ] model.cc
+  - [X] model.cc
 
 - deploy
+  - [ ] deploy readme
   - [ ] build project requirement
-  - [ ] inference process
-  - [ ] use microphone inference
-  - [ ] on NUCLEO-F767ZI (MBED-CLI)
+  - [X] inference process
+  - [ ] use microphone inference with thread
+  - [X] on NUCLEO-F767ZI (MBED-CLI)
   - [ ] on Arduino nano ble 33 (Arduino-CLI)

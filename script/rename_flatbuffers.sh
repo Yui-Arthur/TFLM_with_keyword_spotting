@@ -1,3 +1,22 @@
+project_dir=./
+while getopts 'p:ch' flag; do
+ case $flag in
+   h) 
+    echo "-p to set project dir"
+    exit 0
+    ;;
+   p)
+    project_dir=$OPTARG
+   ;;
+   ?)
+    echo "Argument Error"
+    exit 1
+   ;;
+ esac
+done
+
+cd $project_dir
+
 cd ./tensorflow/lite/core/api/
 echo `pwd` + change flatbuffers/vector.h to flatbuffers/fb_vector.h
 

@@ -1,19 +1,27 @@
 CMSIS=false
-while getopts 'ch' flag; do
+project_dir=./
+while getopts 'p:ch' flag; do
  case $flag in
    h) 
     echo "-c to set the CMSIS Kernel in TFLM"
+    echo "-p to set project dir"
     exit 0
     ;;
    c)
     CMSIS=true
-    ;; 
+    ;;
+   p)
+    project_dir=$OPTARG
+   ;;
    ?)
     echo "Argument Error"
     exit 1
    ;;
  esac
 done
+
+cd $project_dir
+echo `pwd`
 
 # Returns all necessary header and source files
 OPTIONS="OPTIMIZED_KERNEL_DIR=cmsis_nn"
@@ -72,4 +80,4 @@ do
   cp tflite-micro/$file $DIR
 done
 
-rm -r tflite-micro
+sudo rm -r tflite-micro
