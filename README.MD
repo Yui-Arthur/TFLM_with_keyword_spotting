@@ -8,7 +8,7 @@
   - [ ] augmentation
 
 - export
-  - [ ] float32 & int8
+  - [X] float32 & int8
   - [ ] model.cc
 
 - deploy
