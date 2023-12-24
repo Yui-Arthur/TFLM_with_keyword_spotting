@@ -3,7 +3,7 @@ from pathlib import Path
 from tqdm import tqdm
 import tensorflow as tf
 import logging
-from tf_train import google_speech_commands_dataset , logger_setting
+from .tf_train import google_speech_commands_dataset , logger_setting
 
 
 def save_model_tflite_quant(save_model_folder : Path , dataset , logger:logging.Logger):
@@ -35,7 +35,7 @@ def save_model_tflite_quant(save_model_folder : Path , dataset , logger:logging.
     logger.info("Successfully convert tflite quant")
     
 def test_tflite_model(tflite_model_path, test_dataset , logger:logging.Logger):
-    interpreter = tf.lite.Interpreter(model_path=tflite_model_path)
+    interpreter = tf.lite.Interpreter(model_path=str(tflite_model_path))
     interpreter.allocate_tensors()
     input = interpreter.get_input_details()[0]
     output = interpreter.get_output_details()[0]
