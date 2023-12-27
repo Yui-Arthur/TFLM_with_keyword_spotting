@@ -87,8 +87,8 @@ class conv_model(tf.keras.Model):
     @tf.function
     def Validate(self, x:tf.Tensor, y:tf.Tensor) -> tf.Tensor:
         output = self.__call__(x, training=False)
-        review = tf.math.in_top_k(tf.math.argmax(y,axis=1), output, 1)
         classLoss = self._learner["get_loss"](y , output)
+        review = tf.math.in_top_k(tf.math.argmax(y,axis=1), output, 1)
         perf = tf.math.reduce_mean(tf.cast(review, dtype="float32"))
         return perf , classLoss
 
@@ -96,25 +96,34 @@ class conv_model(tf.keras.Model):
 
         input_tensor = tf.keras.Input(shape=(16000,1))
         feature_map = input_tensor
-        feature_map = tf.keras.layers.Conv1D(32, [32], strides=[4], padding="causal")(feature_map)
+        feature_map = tf.keras.layers.Conv1D(32 , [160], strides=[32], padding="causal")(feature_map)
+        feature_map = tf.keras.layers.BatchNormalization()(feature_map)
         feature_map = tf.keras.layers.ReLU()(feature_map)
-        feature_map = tf.keras.layers.Conv1D(64, [32], strides=[4], padding="causal")(feature_map)
+
+        feature_map = tf.keras.layers.Conv1D(32, [50], strides=[2], padding="causal")(feature_map)
+        feature_map = tf.keras.layers.BatchNormalization()(feature_map)
         feature_map = tf.keras.layers.ReLU()(feature_map)
-        feature_map = tf.keras.layers.Conv1D(128, [32], strides=[4], padding="causal")(feature_map)
+
+        feature_map = tf.keras.layers.Conv1D(64, [3], strides=[1], padding="causal")(feature_map)
+        feature_map = tf.keras.layers.BatchNormalization()(feature_map)
         feature_map = tf.keras.layers.ReLU()(feature_map)
-        feature_map = tf.keras.layers.Conv1D(256, [32], strides=[1], padding="same")(feature_map)
+
+        feature_map = tf.keras.layers.Conv1D(64, [3], strides=[1], padding="causal")(feature_map)
+        feature_map = tf.keras.layers.BatchNormalization()(feature_map)
         feature_map = tf.keras.layers.ReLU()(feature_map)
+
+
         feature_map = tf.transpose(feature_map , perm = [0,2,1])
-        feature_map = tf.keras.layers.AveragePooling1D(256 , strides=256)(feature_map)
+        feature_map = tf.keras.layers.AveragePooling1D(64 , strides=64)(feature_map)
         feature_map = tf.squeeze(feature_map , axis=1)
-        feature_map = tf.keras.layers.Dense(256, input_dim = 250, activation='relu')(feature_map)
-        output_tensor = tf.keras.layers.Dense(self.out_class, input_dim = 256, activation='relu')(feature_map)
+        output_tensor = tf.keras.layers.Dense(self.out_class, input_dim = 64, activation='relu')(feature_map)
+        # output_tensor = tf.keras.layers.Dense(self.out_class, input_dim = 256, activation='relu')(feature_map)
         model = tf.keras.Model(input_tensor, output_tensor)
         return model
     
     def _BuildLearner(self) -> dict:
-        # classLoss = lambda p, y: tf.reduce_mean(-tf.reduce_sum(y*tf.math.log(p+1e-13), axis=1))
-        classLoss = tf.keras.losses.CategoricalCrossentropy()
+        # classLoss = lambda y, p: tf.reduce_mean(-tf.reduce_sum(y*tf.math.log(p+1e-13), axis=1))
+        classLoss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
         classOptimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
         learner = {"get_loss": classLoss, "optimize": classOptimizer}
 
@@ -251,7 +260,7 @@ if __name__ == "__main__":
     wav_size = 16000
     output_class = 35
     # hyperparameter
-    epochs = 3
+    epochs = 10
     batch_size = 64
     learning_rate = 1e-3
 
@@ -269,7 +278,7 @@ if __name__ == "__main__":
     
     # get dataloader
     # train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , logger)
-    train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , logger, (256,256,256) , load_in_memory=True)
+    train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , logger, (2000,2000,256) , load_in_memory=True)
 
     # train / valid
     train_info = []
