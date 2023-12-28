@@ -15,18 +15,35 @@ def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size, 
 
     logger.info(f"train: {pick_num[0]} , valid: {pick_num[1]} , test: {pick_num[2]} , load_in_memory: {load_in_memory}")
 
-    def __getitem__(file_name):
+    def __getitem__(file_name, compress=False):
         if type(file_name) != str:
             file_name = file_name.numpy().decode('ascii')
-        wav_data , sample_rate = tf.audio.decode_wav(tf.io.read_file(file_name))
 
+        label = Path(file_name).parent.stem
+        if not compress:
+            wav_data , sample_rate = tf.audio.decode_wav(tf.io.read_file(file_name))
+
+            if(wav_data.shape[0] != wav_size):
+                pad = np.zeros((wav_size - wav_data.shape[0], 1))
+                wav_data = np.concatenate((wav_data , pad) ,axis=0)
+                    
+            id = tf.one_hot(label_to_id[label], len(label_to_id))   
+
+            return wav_data , id
+        else:
+            int16_wav_data = tf.io.read_file(file_name)
+            id = label_to_id[label]
+            
+            return int16_wav_data , id
+    
+    def __decompress__(int16_wav_data, id):
+        wav_data , sample_rate = tf.audio.decode_wav(int16_wav_data)
         if(wav_data.shape[0] != wav_size):
             pad = np.zeros((wav_size - wav_data.shape[0], 1))
             wav_data = np.concatenate((wav_data , pad) ,axis=0)
-                
-        label = Path(file_name).parent.stem
-        id = tf.one_hot(label_to_id[label], len(label_to_id))   
-        return wav_data , id
+            
+        id = tf.one_hot(id, len(label_to_id))   
+        return wav_data, id
 
     data_lists = [train_list, valid_list, test_list]
     dataset_lists = [[],[],[]]
@@ -37,12 +54,13 @@ def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size, 
             loaded_data_x = []
             loaded_data_y = []
             for f in tqdm(data_lists[idx][:pick_num[idx]]):
-                x , y = __getitem__(f) 
+                x , y = __getitem__(f, compress=True) 
                 loaded_data_x.append(x)
                 loaded_data_y.append(y)
             
             dataset = tf.data.Dataset.from_tensor_slices((loaded_data_x, loaded_data_y))
             dataset = dataset.shuffle(len(loaded_data_x), reshuffle_each_iteration=True)
+            dataset = dataset.map(lambda x,y: tf.py_function(__decompress__, [x, y] , [tf.float32 , tf.float32]), num_parallel_calls=tf.data.AUTOTUNE)
             dataset = dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
             dataset_lists[idx] = dataset
     else:
