@@ -1,0 +1,1 @@
+docker run --rm --gpus all -v $PWD:/tmp -w /tmp tensorflow/tensorflow:2.14.0-gpu /bin/bash -c "pip install requirement.txt; python train_and_convert_utils/tf_train.py"

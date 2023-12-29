@@ -6,14 +6,16 @@ import sys
 import matplotlib.pyplot as plt
 import random
 import tensorflow as tf
+import wave
 
 """dataset define"""
 def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size, logger:logging.Logger
-                                   , pick_num : tuple[int] = (int(1e9), int(1e9), int(1e9)), load_in_memory=False):
+                                   , pick_num : tuple[int] = (int(1e9), int(1e9), int(1e9)), load_in_memory=False, device="CPU:0"):
     
     train_list , valid_list , test_list , label_to_id = gen_data_list(speech_commands_path)
 
     logger.info(f"train: {pick_num[0]} , valid: {pick_num[1]} , test: {pick_num[2]} , load_in_memory: {load_in_memory}")
+    max_16bit_int = 2**15
 
     def __getitem__(file_name, compress=False):
         if type(file_name) != str:
@@ -28,20 +30,28 @@ def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size, 
                 wav_data = np.concatenate((wav_data , pad) ,axis=0)
                     
             id = tf.one_hot(label_to_id[label], len(label_to_id))   
-
             return wav_data , id
         else:
-            int16_wav_data = tf.io.read_file(file_name)
-            id = label_to_id[label]
+            with wave.open(file_name , "r") as w:
+                frames_size = w.getnframes()
+                frames = w.readframes(frames_size)
+
+            int16_wav_data_1d = np.frombuffer(frames, dtype=np.int16)
+            int16_wav_data = np.expand_dims(int16_wav_data_1d, axis=1)
+
+            if(int16_wav_data.shape[0] != wav_size):
+                pad = np.zeros((wav_size - int16_wav_data.shape[0], 1), dtype=np.int16)
+                int16_wav_data = np.concatenate((int16_wav_data , pad) ,axis=0)
+                del pad
+
+            id = np.array(label_to_id[label], dtype=np.int8)
             
+            del frames , int16_wav_data_1d
+
             return int16_wav_data , id
     
     def __decompress__(int16_wav_data, id):
-        wav_data , sample_rate = tf.audio.decode_wav(int16_wav_data)
-        if(wav_data.shape[0] != wav_size):
-            pad = np.zeros((wav_size - wav_data.shape[0], 1))
-            wav_data = np.concatenate((wav_data , pad) ,axis=0)
-            
+        wav_data = tf.cast(int16_wav_data, dtype=tf.float32) / max_16bit_int            
         id = tf.one_hot(id, len(label_to_id))   
         return wav_data, id
 
@@ -57,12 +67,14 @@ def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size, 
                 x , y = __getitem__(f, compress=True) 
                 loaded_data_x.append(x)
                 loaded_data_y.append(y)
-            
+                 
             dataset = tf.data.Dataset.from_tensor_slices((loaded_data_x, loaded_data_y))
             dataset = dataset.shuffle(len(loaded_data_x), reshuffle_each_iteration=True)
             dataset = dataset.map(lambda x,y: tf.py_function(__decompress__, [x, y] , [tf.float32 , tf.float32]), num_parallel_calls=tf.data.AUTOTUNE)
             dataset = dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
             dataset_lists[idx] = dataset
+
+            logger.info(f"after load {idx_str[idx]} , mem usages {tf.config.experimental.get_memory_info(device)}")
     else:
         for idx in range(len(data_lists)):
             dataset = tf.data.Dataset.from_tensor_slices(data_lists[idx][:pick_num[idx]])
@@ -281,6 +293,7 @@ if __name__ == "__main__":
     epochs = 10
     batch_size = 64
     learning_rate = 1e-3
+    device = "CPU:0"
 
     # path & logger setting
     speech_commands_root_folder = Path("./speech_commands")
@@ -296,16 +309,19 @@ if __name__ == "__main__":
     
     # get dataloader
     # train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , logger)
-    train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , logger, (2000,2000,256) , load_in_memory=True)
+    train_dataloader , valid_dataloader , test_dataloader = google_speech_commands_dataset(speech_commands_root_folder, wav_size, batch_size , logger, 
+                                                                                           (64,64,1) , load_in_memory=True, device=device)
 
+    
     # train / valid
     train_info = []
     max_acc = -1
     for epoch in range(epochs):
-        logger.info(f"epoch {epoch} :")
+        logger.info(f"epoch {epoch+1} :")
         epoch_info = train_one_epoch(model , train_dataloader , valid_dataloader , max_acc , logger , root_folder)
         train_info.append(list(epoch_info))
         max_acc = max(epoch_info[2] ,max_acc)
+        logger.info(f"\tmem usages {tf.config.experimental.get_memory_info(device)}")
 
     # show train the result    
     show_train_results(train_info , root_folder)
