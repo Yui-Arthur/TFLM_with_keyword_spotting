@@ -1,2 +1,2 @@
-from .tf_train import logger_setting , google_speech_commands_dataset , show_train_results , testing_model , train_one_epoch , conv_model
+from .tf_train import logger_setting , google_speech_commands_dataset , show_train_results , testing_model , train_one_epoch , conv_model , gen_label_to_id_dict
 from .tflite_convert_quant import save_model_tflite_quant , test_tflite_model

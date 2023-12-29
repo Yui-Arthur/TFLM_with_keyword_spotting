@@ -74,6 +74,7 @@ def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size, 
             dataset = tf.data.Dataset.from_tensor_slices((loaded_data_x, loaded_data_y))
             dataset = dataset.shuffle(len(loaded_data_x), reshuffle_each_iteration=True)
             dataset = dataset.map(lambda x,y: tf.py_function(__decompress__, [x, y] , [tf.float32 , tf.float32]), num_parallel_calls=tf.data.AUTOTUNE)
+            dataset = dataset.cache()
             dataset = dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
             dataset_lists[idx] = dataset
 
@@ -83,6 +84,7 @@ def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size, 
             dataset = tf.data.Dataset.from_tensor_slices(data_lists[idx][:pick_num[idx]])
             dataset = dataset.shuffle(len(data_lists[idx][:pick_num[idx]]), reshuffle_each_iteration=True)
             dataset = dataset.map(lambda x: tf.py_function(__getitem__, [x] , [tf.float32 , tf.float32]), num_parallel_calls=tf.data.AUTOTUNE)
+            dataset = dataset.cache()
             dataset = dataset.batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
             dataset_lists[idx] = dataset
 
@@ -129,27 +131,38 @@ class conv_model(tf.keras.Model):
 
         input_tensor = tf.keras.Input(shape=(16000,1))
         feature_map = input_tensor
-        feature_map = tf.keras.layers.Conv1D(32 , [160], strides=[32], padding="causal")(feature_map)
+        feature_map = tf.keras.layers.Conv1D(32 , [160], strides=[16], padding="causal")(feature_map)
         feature_map = tf.keras.layers.BatchNormalization()(feature_map)
         feature_map = tf.keras.layers.ReLU()(feature_map)
 
-        feature_map = tf.keras.layers.Conv1D(32, [50], strides=[2], padding="causal")(feature_map)
+        feature_map = tf.keras.layers.Conv1D(64, [80], strides=[4], padding="causal")(feature_map)
         feature_map = tf.keras.layers.BatchNormalization()(feature_map)
         feature_map = tf.keras.layers.ReLU()(feature_map)
 
-        feature_map = tf.keras.layers.Conv1D(64, [3], strides=[1], padding="causal")(feature_map)
+        feature_map = tf.keras.layers.Conv1D(128, [3], strides=[1], padding="same")(feature_map)
         feature_map = tf.keras.layers.BatchNormalization()(feature_map)
         feature_map = tf.keras.layers.ReLU()(feature_map)
 
-        feature_map = tf.keras.layers.Conv1D(64, [3], strides=[1], padding="causal")(feature_map)
+        feature_map = tf.keras.layers.Conv1D(256, [3], strides=[1], padding="same")(feature_map)
         feature_map = tf.keras.layers.BatchNormalization()(feature_map)
         feature_map = tf.keras.layers.ReLU()(feature_map)
+
+        x = feature_map
+        feature_map = tf.keras.layers.LayerNormalization()(feature_map)
+        feature_map = tf.keras.layers.Conv1D(256, [1], strides=[1], padding="same")(feature_map)
+        feature_map = tf.keras.activations.gelu(feature_map)
+        feature_map = tf.keras.layers.DepthwiseConv1D(3,strides=[1], padding="same")(feature_map)
+        feature_map = tf.keras.layers.BatchNormalization()(feature_map)
+        feature_map = tf.keras.activations.swish(feature_map)
+        feature_map = tf.keras.layers.Conv1D(256, [1], strides=[1], padding="same")(feature_map)
+        feature_map = tf.keras.layers.Dropout(0.2)(feature_map)
+        feature_map += x
 
 
         feature_map = tf.transpose(feature_map , perm = [0,2,1])
-        feature_map = tf.keras.layers.AveragePooling1D(64 , strides=64)(feature_map)
+        feature_map = tf.keras.layers.AveragePooling1D(256 , strides=256)(feature_map)
         feature_map = tf.squeeze(feature_map , axis=1)
-        output_tensor = tf.keras.layers.Dense(self.out_class, input_dim = 64, activation='relu')(feature_map)
+        output_tensor = tf.keras.layers.Dense(self.out_class, input_dim = 256, activation='relu')(feature_map)
         # output_tensor = tf.keras.layers.Dense(self.out_class, input_dim = 256, activation='relu')(feature_map)
         model = tf.keras.Model(input_tensor, output_tensor)
         return model
