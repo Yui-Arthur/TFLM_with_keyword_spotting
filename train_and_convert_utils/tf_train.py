@@ -36,8 +36,8 @@ def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size, 
                 frames_size = w.getnframes()
                 frames = w.readframes(frames_size)
 
-            int16_wav_data_1d = np.frombuffer(frames, dtype=np.int16)
-            int16_wav_data = np.expand_dims(int16_wav_data_1d, axis=1)
+            int16_wav_data = np.frombuffer(frames, dtype=np.int16)
+            int16_wav_data = np.expand_dims(int16_wav_data, axis=1)
 
             if(int16_wav_data.shape[0] != wav_size):
                 pad = np.zeros((wav_size - int16_wav_data.shape[0], 1), dtype=np.int16)
@@ -46,9 +46,12 @@ def google_speech_commands_dataset(speech_commands_path, wav_size , batch_size, 
 
             id = np.array(label_to_id[label], dtype=np.int8)
             
-            del frames , int16_wav_data_1d
+            tf_wav_data = tf.convert_to_tensor(int16_wav_data, dtype=tf.int16)
+            tf_id = tf.convert_to_tensor(id, dtype=tf.int8) 
 
-            return int16_wav_data , id
+            del int16_wav_data , id
+
+            return tf_wav_data , tf_id
     
     def __decompress__(int16_wav_data, id):
         wav_data = tf.cast(int16_wav_data, dtype=tf.float32) / max_16bit_int            
