@@ -11,3 +11,4 @@ model/*.wav
 test/
 test.py
 .vscode/
+model

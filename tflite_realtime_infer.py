@@ -65,21 +65,24 @@ def get_pyaudio_input():
 #     print(d['index'], d['name'], d['maxInputChannels'])
 # # exit()
 
-# logger = logger_setting(Path("conformer/") , "convert_and_quant")
+# root_dir = Path("model/12_31_train/model")
+# logger = logger_setting(root_dir , "convert_and_quant")
 # input_dim = (16000,1)
 # wav_size = 16000
 # output_class = 35
 # speech_commands_root_folder = Path("./speech_commands")
 
-# _, _, test_dataset = google_speech_commands_dataset(speech_commands_root_folder , wav_size, 1, logger, (1,1,10000) , load_in_memory=True1)
-# save_model_tflite_quant(Path("conformer/model") , test_dataset, logger)
+# _, _, test_dataset = google_speech_commands_dataset(speech_commands_root_folder , wav_size, 1, logger, (1,1,1), True)
+# # save_model_tflite_quant(root_dir, test_dataset, logger)
+# test_tflite_model(root_dir / "quant_model.tflite", test_dataset , logger)
+# test_tflite_model(root_dir / "float_model.tflite", test_dataset , logger)
 # exit()
 
 if __name__ == '__main__':
 
     global two_seconds_data, cur_idx
 
-    tflite_model_path = "conformer/model/float_model.tflite"
+    tflite_model_path = "model/12_31_train/model/float_model.tflite"
     speech_commands_root_folder = Path("./speech_commands")
     two_seconds_len = 16000 * 2 * 2
     int16_max = 2**15
@@ -94,7 +97,7 @@ if __name__ == '__main__':
     input_stream.start_stream()
     while 1:
         
-        time.sleep(0.5)
+        time.sleep(0.3)
 
         one_seconds_len = two_seconds_len // 2
         if cur_idx > one_seconds_len:
@@ -107,7 +110,9 @@ if __name__ == '__main__':
             data = np.frombuffer(data, dtype=np.int16).astype(np.float32) / int16_max
 
         result = tflite_infer(interpreter, data)
-        if(np.max(result) > 0.5):
+        # print(result)
+        print(np.max(result))
+        if(np.max(result) > 0.3):
             print(id_to_label_dic[np.argmax(result)])
         else:
             print("None")

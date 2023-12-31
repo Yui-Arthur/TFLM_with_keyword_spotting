@@ -57,7 +57,7 @@ def test_tflite_model(tflite_model_path, test_dataset , logger:logging.Logger):
         if output["dtype"] == np.float32:
             pred = interpreter.get_tensor(output['index'])
         else:
-            dequant_pred = interpreter.get_tensor(output['index'])
+            dequant_pred = interpreter.get_tensor(output['index']).astype(np.float32)
             pred = (dequant_pred - output_zero_point) * output_scale
 
         testing_acc = np.append(testing_acc, np.argmax(pred) == np.argmax(label))   
@@ -66,13 +66,14 @@ def test_tflite_model(tflite_model_path, test_dataset , logger:logging.Logger):
 
 if __name__ == "__main__":
     # init setting
-    logger = logger_setting(Path("conformer/1219") , "convert_and_quant")
+    root_dir = Path("model/12_30_train/model")
+    logger = logger_setting(root_dir , "convert_and_quant")
     input_dim = (16000,1)
     wav_size = 16000
     output_class = 35
     speech_commands_root_folder = Path("./speech_commands")
 
-    _, _, test_dataset = google_speech_commands_dataset(speech_commands_root_folder , wav_size, 1, logger, (1,1,5000), True)
-    save_model_tflite_quant(Path("conformer/1219/model") , test_dataset, logger)
-    # test_tflite_model("conformer/1219/model/quant.tflite", test_dataset , logger)
-    # test_tflite_model("conformer/1219/model/float.tflite", test_dataset , logger)
+    _, _, test_dataset = google_speech_commands_dataset(speech_commands_root_folder , wav_size, 1, logger, (1,1,10000), True)
+    save_model_tflite_quant(root_dir / "saved_model.pb" , test_dataset, logger)
+    test_tflite_model(root_dir / "quant.tflite", test_dataset , logger)
+    test_tflite_model(root_dir / "quant.tflite", test_dataset , logger)

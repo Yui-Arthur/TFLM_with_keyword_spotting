@@ -139,7 +139,7 @@ class conv_model(tf.keras.Model):
         feature_map = tf.keras.layers.BatchNormalization()(feature_map)
         feature_map = tf.keras.layers.ReLU()(feature_map)
 
-        feature_map = tf.keras.layers.Conv1D(128, [3], strides=[1], padding="same")(feature_map)
+        feature_map = tf.keras.layers.Conv1D(128, [40], strides=[1], padding="same")(feature_map)
         feature_map = tf.keras.layers.BatchNormalization()(feature_map)
         feature_map = tf.keras.layers.ReLU()(feature_map)
 
@@ -162,14 +162,15 @@ class conv_model(tf.keras.Model):
         feature_map = tf.transpose(feature_map , perm = [0,2,1])
         feature_map = tf.keras.layers.AveragePooling1D(256 , strides=256)(feature_map)
         feature_map = tf.squeeze(feature_map , axis=1)
-        output_tensor = tf.keras.layers.Dense(self.out_class, input_dim = 256, activation='relu')(feature_map)
+        feature_map = tf.keras.layers.Dropout(0.2)(feature_map)
+        output_tensor = tf.keras.layers.Dense(self.out_class, input_dim = 256, activation=tf.keras.activations.softmax)(feature_map)
         # output_tensor = tf.keras.layers.Dense(self.out_class, input_dim = 256, activation='relu')(feature_map)
         model = tf.keras.Model(input_tensor, output_tensor)
         return model
     
     def _BuildLearner(self) -> dict:
-        # classLoss = lambda y, p: tf.reduce_mean(-tf.reduce_sum(y*tf.math.log(p+1e-13), axis=1))
-        classLoss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
+        # classLoss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
+        classLoss = tf.keras.losses.CategoricalCrossentropy()
         classOptimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
         learner = {"get_loss": classLoss, "optimize": classOptimizer}
 
